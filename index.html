@@ -11,41 +11,31 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <!-- Babel to compile the React code dynamically in the browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Lucide Icons globally loaded -->
-  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="bg-stone-50 text-stone-800 antialiased">
+<body class="bg-stone-50 text-stone-800 antialiased origin-top scale-95">
 
   <div id="root"></div>
 
   <script type="text/babel">
-    // Deconstruct React Hooks directly from the global build
     const { useState, useEffect } = React;
 
-    // Map the Lucide icons to lookups since we aren't using npm imports
-    const Users = () => <i data-lucide="users"></i>;
-    const UserPlus = () => <i data-lucide="user-plus"></i>;
-    const ArrowLeft = () => <i data-lucide="arrow-left"></i>;
-    const Edit3 = () => <i data-lucide="edit-3"></i>;
-    const MapPin = () => <i data-lucide="map-pin"></i>;
-    const Clock = () => <i data-lucide="clock"></i>;
-    const MessageCircle = () => <i data-lucide="message-circle"></i>;
-    const Headphones = () => <i data-lucide="headphones"></i>;
-    const MessageSquare = () => <i data-lucide="message-square"></i>;
-    const Brain = () => <i data-lucide="brain"></i>;
-    const Coffee = () => <i data-lucide="coffee"></i>;
-    const Smile = () => <i data-lucide="smile"></i>;
-    const Save = () => <i data-lucide="save"></i>;
-    const X = () => <i data-lucide="x"></i>;
-    const Trash2 = () => <i data-lucide="trash-2"></i>;
-    const Camera = () => <i data-lucide="camera"></i>;
-    const Plus = () => <i data-lucide="plus"></i>;
-    const Star = () => <i data-lucide="star"></i>;
-
-    // Helper to refresh dynamically injected icons on view changes
-    const refreshIcons = () => {
-      setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 200);
-    };
+    // Use pure Unicode/Emoji icons for perfect performance and zero render errors inside iframes
+    const Users = () => <span>👥</span>;
+    const UserPlus = () => <span>➕👤</span>;
+    const ArrowLeft = () => <span>⬅️</span>;
+    const Edit3 = () => <span>✏️</span>;
+    const MapPin = () => <span>📍</span>;
+    const Clock = () => <span>🕒</span>;
+    const MessageCircle = () => <span>💬</span>;
+    const Headphones = () => <span>🎧</span>;
+    const MessageSquare = () => <span>📝</span>;
+    const Brain = () => <span>🧠</span>;
+    const Coffee = () => <span>☕</span>;
+    const Smile = () => <span>😊</span>;
+    const Save = () => <span>💾</span>;
+    const X = () => <span>❌</span>;
+    const Trash2 = () => <span>🗑️</span>;
+    const Camera = () => <span>📷</span>;
 
     const STORAGE_KEY = 'team_manual_profiles_v1';
     const generateId = () => crypto.randomUUID();
@@ -64,7 +54,22 @@
         processInfo: 'I\'m a visual processor. A quick loom video helps.',
         hobbies: 'Pottery, hiking with my dog.',
         happyToChatAbout: 'Coffee brewing techniques, sci-fi novels.',
-        customFields: [{ id: generateId(), label: 'Favorite Office Snack', value: 'Spicy Nacho Doritos.' }]
+        customFields: []
+      },
+      {
+        id: generateId(),
+        name: 'Sam Taylor',
+        role: 'Frontend Engineer',
+        avatarUrl: '',
+        typicalHours: '8:00 AM - 4:00 PM GMT',
+        location: 'Hybrid (Manchester / WFH)',
+        bestChannels: 'Slack or Teams.',
+        deepWork: 'Headphones on = deep work. I use the focus mode in Slack.',
+        feedbackStyle: 'Written feedback is best for me so I can refer back to it.',
+        processInfo: 'I need time to digest. Send me the agenda before a meeting.',
+        hobbies: 'Bouldering, making electronic music.',
+        happyToChatAbout: 'Synthesizers, new CSS features.',
+        customFields: []
       }
     ];
 
@@ -109,7 +114,6 @@
       const [activeProfile, setActiveProfile] = useState(null);
 
       useEffect(() => { loadData(); }, []);
-      useEffect(() => { refreshIcons(); }, [view, isLoading]);
 
       const loadData = async () => {
         setIsLoading(true);
@@ -122,7 +126,7 @@
           <div className="max-w-5xl mx-auto">
             <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pb-4 border-b border-stone-200 gap-4">
               <div className="flex items-center gap-3">
-                <div className="bg-orange-500 p-2 rounded-xl text-white shadow-sm flex items-center justify-center">
+                <div className="bg-orange-500 p-2.5 rounded-xl text-white shadow-sm flex items-center justify-center text-xl">
                   <Users />
                 </div>
                 <div>
@@ -131,11 +135,11 @@
                 </div>
               </div>
               {view === 'dashboard' ? (
-                <button onClick={() => { setView('edit'); setActiveProfile(emptyProfile); }} className="flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white px-4 py-2.5 rounded-xl font-medium shadow-sm transition-colors">
+                <button onClick={() => { setView('edit'); setActiveProfile(emptyProfile); }} className="flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white px-4 py-2.5 rounded-xl font-medium shadow-sm transition-colors text-sm">
                   <UserPlus /> <span>Create Profile</span>
                 </button>
               ) : (
-                <button onClick={() => setView('dashboard')} className="flex items-center gap-2 bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 px-4 py-2.5 rounded-xl font-medium shadow-sm transition-colors">
+                <button onClick={() => setView('dashboard')} className="flex items-center gap-2 bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 px-4 py-2.5 rounded-xl font-medium shadow-sm transition-colors text-sm">
                   <ArrowLeft /> <span>Back to Team</span>
                 </button>
               )}
@@ -148,7 +152,7 @@
                 <>
                   {view === 'dashboard' && <Dashboard profiles={profiles} onSelect={(p) => { setActiveProfile(p); setView('profile'); }} />}
                   {view === 'profile' && <ProfileView profile={activeProfile} onEdit={() => setView('edit')} />}
-                  {view === 'edit' && <ProfileForm profile={activeProfile} onSave={async(p)=>{const s=await api.saveProfile(p); await loadData(); setActiveProfile(s); setView('profile');}} onCancel={()=>activeProfile?.id ? setView('profile') : setView('dashboard')} onDelete={async(id)=>{if(confirm('Delete?')){await api.deleteProfile(id); await loadData(); setView('dashboard');}}} />}
+                  {view === 'edit' && <ProfileForm profile={activeProfile} onSave={async(p)=>{const s=await api.saveProfile(p); await loadData(); setActiveProfile(s); setView('profile');}} onCancel={()=>activeProfile?.id ? setView('profile') : setView('dashboard')} onDelete={async(id)=>{if(confirm('Delete Profile?')){await api.deleteProfile(id); await loadData(); setView('dashboard');}}} />}
                 </>
               )}
             </main>
@@ -185,6 +189,7 @@
     }
 
     function ProfileView({ profile, onEdit }) {
+      if (!profile) return null;
       return (
         <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
           <div className="bg-gradient-to-r from-stone-100 to-orange-50 p-6 sm:p-10 flex items-center justify-between relative">
@@ -210,31 +215,31 @@
     }
 
     function ProfileForm({ profile, onSave, onCancel, onDelete }) {
-      const [state, setState] = useState(profile);
+      const [state, setState] = useState(profile || emptyProfile);
       const update = (field, val) => setState(prev => ({ ...prev, [field]: val }));
       return (
         <div className="bg-white rounded-3xl shadow-sm border border-stone-200 p-6 sm:p-10 space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div><label class="block text-sm font-medium mb-1">Name</label><input type="text" value={state.name} onChange={e=>update('name', e.target.value)} class="w-full border p-2 rounded-xl" /></div>
-            <div><label class="block text-sm font-medium mb-1">Role</label><input type="text" value={state.role} onChange={e=>update('role', e.target.value)} class="w-full border p-2 rounded-xl" /></div>
-            <div><label class="block text-sm font-medium mb-1">Avatar URL</label><input type="text" value={state.avatarUrl} onChange={e=>update('avatarUrl', e.target.value)} class="w-full border p-2 rounded-xl" /></div>
+            <div><label className="block text-sm font-medium mb-1">Name</label><input type="text" value={state.name || ''} onChange={e=>update('name', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
+            <div><label className="block text-sm font-medium mb-1">Role</label><input type="text" value={state.role || ''} onChange={e=>update('role', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
+            <div><label className="block text-sm font-medium mb-1">Avatar URL</label><input type="text" value={state.avatarUrl || ''} onChange={e=>update('avatarUrl', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
           </div>
           <hr />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div><label class="block text-sm font-medium mb-1">Typical Hours</label><input type="text" value={state.typicalHours} onChange={e=>update('typicalHours', e.target.value)} class="w-full border p-2 rounded-xl" /></div>
-            <div><label class="block text-sm font-medium mb-1">Location</label><input type="text" value={state.location} onChange={e=>update('location', e.target.value)} class="w-full border p-2 rounded-xl" /></div>
+            <div><label className="block text-sm font-medium mb-1">Typical Hours</label><input type="text" value={state.typicalHours || ''} onChange={e=>update('typicalHours', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
+            <div><label className="block text-sm font-medium mb-1">Location</label><input type="text" value={state.location || ''} onChange={e=>update('location', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
           </div>
-          <div><label class="block text-sm font-medium mb-1">Best Channels</label><textarea value={state.bestChannels} onChange={e=>update('bestChannels', e.target.value)} class="w-full border p-2 rounded-xl" rows="2" /></div>
-          <div><label class="block text-sm font-medium mb-1">Deep Work & Focus</label><textarea value={state.deepWork} onChange={e=>update('deepWork', e.target.value)} class="w-full border p-2 rounded-xl" rows="2" /></div>
-          <div><label class="block text-sm font-medium mb-1">Feedback Style</label><textarea value={state.feedbackStyle} onChange={e=>update('feedbackStyle', e.target.value)} class="w-full border p-2 rounded-xl" rows="2" /></div>
-          <div><label class="block text-sm font-medium mb-1">How I Process Information</label><textarea value={state.processInfo} onChange={e=>update('processInfo', e.target.value)} class="w-full border p-2 rounded-xl" rows="2" /></div>
-          <div><label class="block text-sm font-medium mb-1">Hobbies & Interests</label><textarea value={state.hobbies} onChange={e=>update('hobbies', e.target.value)} class="w-full border p-2 rounded-xl" rows="2" /></div>
-          <div><label class="block text-sm font-medium mb-1">Always Happy to Chat About</label><textarea value={state.happyToChatAbout} onChange={e=>update('happyToChatAbout', e.target.value)} class="w-full border p-2 rounded-xl" rows="2" /></div>
-          <div className="flex justify-between items-center pt-4 border-t">
-            {state.id ? <button type="button" onClick={()=>onDelete(state.id)} class="text-red-600 font-medium">Delete</button> : <div/>}
+          <div><label className="block text-sm font-medium mb-1">Best Channels</label><textarea value={state.bestChannels || ''} onChange={e=>update('bestChannels', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
+          <div><label className="block text-sm font-medium mb-1">Deep Work & Focus</label><textarea value={state.deepWork || ''} onChange={e=>update('deepWork', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
+          <div><label className="block text-sm font-medium mb-1">Feedback Style</label><textarea value={state.feedbackStyle || ''} onChange={e=>update('feedbackStyle', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
+          <div><label className="block text-sm font-medium mb-1">How I Process Information</label><textarea value={state.processInfo || ''} onChange={e=>update('processInfo', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
+          <div><label className="block text-sm font-medium mb-1">Hobbies & Interests</label><textarea value={state.hobbies || ''} onChange={e=>update('hobbies', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
+          <div><label className="block text-sm font-medium mb-1">Always Happy to Chat About</label><textarea value={state.happyToChatAbout || ''} onChange={e=>update('happyToChatAbout', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
+          <div className="flex justify-between items-center pt-4 border-t text-sm">
+            {state.id ? <button type="button" onClick={()=>onDelete(state.id)} className="text-red-600 font-medium">Delete Profile</button> : <div/>}
             <div className="flex gap-2">
-              <button type="button" onClick={onCancel} class="border px-4 py-2 rounded-xl">Cancel</button>
-              <button type="button" onClick={()=>onSave(state)} class="bg-orange-600 text-white px-4 py-2 rounded-xl">Save</button>
+              <button type="button" onClick={onCancel} className="border px-4 py-2 rounded-xl">Cancel</button>
+              <button type="button" onClick={()=>onSave(state)} className="bg-orange-600 text-white px-4 py-2 rounded-xl">Save Profile</button>
             </div>
           </div>
         </div>
@@ -254,7 +259,7 @@
     function Section({ title, icon, children }) {
       return (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 font-semibold text-lg text-stone-900 border-b pb-1 text-orange-600">{icon} <span>{title}</span></div>
+          <div className="flex items-center gap-2 font-semibold text-base text-stone-900 border-b pb-1 text-orange-600">{icon} <span>{title}</span></div>
           <div className="space-y-3">{children}</div>
         </div>
       );
