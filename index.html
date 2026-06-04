@@ -4,12 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Team Manuals</title>
-  <!-- Tailwind CSS for modern layout styling -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React and ReactDOM production builds loaded directly -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <!-- Babel to compile the React code dynamically in the browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-stone-50 text-stone-800 antialiased origin-top-left scale-95 ml-0 pl-0">
@@ -40,22 +37,12 @@
     const STORAGE_KEY = 'team_manual_profiles_v1';
     const generateId = () => crypto.randomUUID();
 
-    // Easy Preset Avatar options for users to select instantly
-    const AVATAR_PRESETS = [
-      { name: 'Blue', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80' },
-      { name: 'Green', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80' },
-      { name: 'Purple', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80' },
-      { name: 'Orange', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80' },
-      { name: 'Teal', url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80' },
-      { name: 'Gray', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80' }
-    ];
-
     const initialDummyData = [
       {
         id: generateId(),
         name: 'Alex Rivera',
         role: 'Senior Product Designer',
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        avatarUrl: '',
         typicalHours: '10:00 AM - 6:00 PM EST',
         location: 'Remote in New York',
         bestChannels: 'Slack for quick pings, Email for detailed reviews.',
@@ -64,21 +51,6 @@
         processInfo: 'I\'m a visual processor. A quick loom video helps.',
         hobbies: 'Pottery, hiking with my dog.',
         happyToChatAbout: 'Coffee brewing techniques, sci-fi novels.',
-        customFields: []
-      },
-      {
-        id: generateId(),
-        name: 'Sam Taylor',
-        role: 'Frontend Engineer',
-        avatarUrl: '',
-        typicalHours: '8:00 AM - 4:00 PM GMT',
-        location: 'Hybrid (Manchester / WFH)',
-        bestChannels: 'Slack or Teams.',
-        deepWork: 'Headphones on = deep work. I use the focus mode in Slack.',
-        feedbackStyle: 'Written feedback is best for me so I can refer back to it.',
-        processInfo: 'I need time to digest. Send me the agenda before a meeting.',
-        hobbies: 'Bouldering, making electronic music.',
-        happyToChatAbout: 'Synthesizers, new CSS features.',
         customFields: []
       }
     ];
@@ -173,148 +145,4 @@
 
     function Dashboard({ profiles, onSelect }) {
       if (!profiles.length) return (
-        <div className="text-center py-20 bg-white rounded-3xl border border-stone-200 border-dashed">
-          <h3 className="text-lg font-medium text-stone-900">No profiles yet</h3>
-        </div>
-      );
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {profiles.map(p => (
-            <div key={p.id} onClick={() => onSelect(p)} className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm hover:shadow-md hover:border-orange-200 transition-all cursor-pointer flex flex-col h-full">
-              <div className="flex items-center gap-4 mb-4">
-                <Avatar url={p.avatarUrl} name={p.name} />
-                <div>
-                  <h3 className="text-lg font-semibold text-stone-900">{p.name}</h3>
-                  <p className="text-sm text-stone-500">{p.role}</p>
-                </div>
-              </div>
-              <div className="mt-auto space-y-2 pt-4 border-t border-stone-50 text-sm text-stone-600">
-                <div className="flex items-center gap-2"><MapPin /><span>{p.location || 'Remote'}</span></div>
-                <div className="flex items-center gap-2"><Clock /><span>{p.typicalHours || 'Flexible'}</span></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    function ProfileView({ profile, onEdit }) {
-      if (!profile) return null;
-      return (
-        <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-stone-100 to-orange-50 p-6 sm:p-10 flex items-center justify-between relative">
-            <div className="flex items-center gap-6">
-              <Avatar url={profile.avatarUrl} name={profile.name} size="xl" />
-              <div>
-                <h2 className="text-3xl font-bold text-stone-900">{profile.name}</h2>
-                <p className="text-lg text-stone-600">{profile.role}</p>
-              </div>
-            </div>
-            <button onClick={onEdit} className="flex items-center gap-2 bg-white text-stone-700 px-4 py-2 rounded-xl text-sm font-medium border border-stone-200 shadow-sm">
-              <Edit3 /> <span>Edit Profile</span>
-            </button>
-          </div>
-          <div className="p-6 sm:p-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Section title="1. When & Where I Work" icon={<Clock />}><Field label="Hours" value={profile.typicalHours}/><Field label="Location" value={profile.location}/></Section>
-            <Section title="2. How to Reach Me" icon={<MessageCircle />}><Field label="Best Channels" value={profile.bestChannels}/><Field label="Deep Work" value={profile.deepWork}/></Section>
-            <Section title="3. Collaboration & Feedback" icon={<Brain />}><Field label="Feedback Style" value={profile.feedbackStyle}/><Field label="Information Processing" value={profile.processInfo}/></Section>
-            <Section title="4. Outside of Work" icon={<Coffee />}><Field label="Hobbies" value={profile.hobbies}/><Field label="Geek Out On" value={profile.happyToChatAbout}/></Section>
-          </div>
-        </div>
-      );
-    }
-
-    function ProfileForm({ profile, onSave, onCancel, onDelete }) {
-      const [state, setState] = useState(profile || emptyProfile);
-      const update = (field, val) => setState(prev => ({ ...prev, [field]: val }));
-      return (
-        <div className="bg-white rounded-3xl shadow-sm border border-stone-200 p-6 sm:p-10 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium mb-1">Name</label><input type="text" value={state.name || ''} onChange={e=>update('name', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
-            <div><label className="block text-sm font-medium mb-1">Role</label><input type="text" value={state.role || ''} onChange={e=>update('role', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
-          </div>
-          
-          {/* NEW: Easy Click Preset Avatar Selector */}
-          <div className="border p-4 rounded-2xl bg-stone-50/50">
-            <label className="block text-sm font-semibold text-stone-700 mb-2">Choose an Avatar</label>
-            <div className="flex flex-wrap gap-3 items-center mb-4">
-              {AVATAR_PRESETS.map((preset, i) => (
-                <button
-                  type="button"
-                  key={i}
-                  onClick={() => update('avatarUrl', preset.url)}
-                  className={`w-12 h-12 rounded-full overflow-hidden border-2 transition-all hover:scale-105 shadow-sm ${state.avatarUrl === preset.url ? 'border-orange-500 ring-2 ring-orange-200' : 'border-transparent'}`}
-                >
-                  <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => update('avatarUrl', '')}
-                className={`w-12 h-12 rounded-full border-2 border-dashed flex items-center justify-center text-xs font-bold transition-all text-stone-500 bg-white ${!state.avatarUrl ? 'border-orange-500 text-orange-600 bg-orange-50' : 'border-stone-300'}`}
-              >
-                Initials
-              </button>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-stone-500 mb-1">Or paste a custom image web link:</label>
-              <input type="text" placeholder="https://..." value={state.avatarUrl || ''} onChange={e=>update('avatarUrl', e.target.value)} className="w-full border p-2 rounded-xl text-xs bg-white" />
-            </div>
-          </div>
-
-          <hr />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium mb-1">Typical Hours</label><input type="text" value={state.typicalHours || ''} onChange={e=>update('typicalHours', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
-            <div><label className="block text-sm font-medium mb-1">Location</label><input type="text" value={state.location || ''} onChange={e=>update('location', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
-          </div>
-          <div><label className="block text-sm font-medium mb-1">Best Channels</label><textarea value={state.bestChannels || ''} onChange={e=>update('bestChannels', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
-          <div><label className="block text-sm font-medium mb-1">Deep Work & Focus</label><textarea value={state.deepWork || ''} onChange={e=>update('deepWork', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
-          <div><label className="block text-sm font-medium mb-1">Feedback Style</label><textarea value={state.feedbackStyle || ''} onChange={e=>update('feedbackStyle', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
-          <div><label className="block text-sm font-medium mb-1">How I Process Information</label><textarea value={state.processInfo || ''} onChange={e=>update('processInfo', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
-          <div><label className="block text-sm font-medium mb-1">Hobbies & Interests</label><textarea value={state.hobbies || ''} onChange={e=>update('hobbies', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
-          <div><label className="block text-sm font-medium mb-1">Always Happy to Chat About</label><textarea value={state.happyToChatAbout || ''} onChange={e=>update('happyToChatAbout', e.target.value)} className="w-full border p-2 rounded-xl text-sm" rows="2" /></div>
-          <div className="flex justify-between items-center pt-4 border-t text-sm">
-            {state.id ? <button type="button" onClick={()=>onDelete(state.id)} className="text-red-600 font-medium">Delete Profile</button> : <div/>}
-            <div className="flex gap-2">
-              <button type="button" onClick={onCancel} className="border px-4 py-2 rounded-xl">Cancel</button>
-              <button type="button" onClick={()=>onSave(state)} className="bg-orange-600 text-white px-4 py-2 rounded-xl">Save Profile</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    function Avatar({ url, name, size = 'md' }) {
-      const dim = size === 'xl' ? 'w-24 h-24 text-2xl' : 'w-12 h-12 text-md';
-      const initials = name ? name.split(' ').map(n=>n[0]).join('').toUpperCase() : '?';
-      return (
-        <div className={`shrink-0 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold overflow-hidden ${dim}`}>
-          {url ? <img src={url} alt={name} className="w-full h-full object-cover" onError={(e)=>{e.target.style.display='none';}} /> : <span>{initials}</span>}
-        </div>
-      );
-    }
-
-    function Section({ title, icon, children }) {
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 font-semibold text-base text-stone-900 border-b pb-1 text-orange-600">{icon} <span>{title}</span></div>
-          <div className="space-y-3">{children}</div>
-        </div>
-      );
-    }
-
-    function Field({ label, value }) {
-      return (
-        <div>
-          <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-0.5">{label}</h4>
-          <p className="text-stone-600 text-sm whitespace-pre-wrap pl-3 border-l-2 border-orange-100">{value || 'Still figuring this out!'}</p>
-        </div>
-      );
-    }
-
-    const container = document.getElementById('root');
-    const root = ReactDOM.createRoot(container);
-    root.render(<App />);
-  </script>
-</body>
-</html>
+        <div className="text-center py-20 bg-white rounded-3xl border border-stone
