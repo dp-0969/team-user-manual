@@ -40,12 +40,22 @@
     const STORAGE_KEY = 'team_manual_profiles_v1';
     const generateId = () => crypto.randomUUID();
 
+    // Easy Preset Avatar options for users to select instantly
+    const AVATAR_PRESETS = [
+      { name: 'Blue', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80' },
+      { name: 'Green', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80' },
+      { name: 'Purple', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80' },
+      { name: 'Orange', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80' },
+      { name: 'Teal', url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80' },
+      { name: 'Gray', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80' }
+    ];
+
     const initialDummyData = [
       {
         id: generateId(),
         name: 'Alex Rivera',
         role: 'Senior Product Designer',
-        avatarUrl: 'https://i.pravatar.cc/150?u=alex',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
         typicalHours: '10:00 AM - 6:00 PM EST',
         location: 'Remote in New York',
         bestChannels: 'Slack for quick pings, Email for detailed reviews.',
@@ -168,9 +178,9 @@
         </div>
       );
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {profiles.map(p => (
-            <div key={p.id} onClick={() => onSelect(p)} className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm hover:shadow-md hover:border-orange-200 transition-all cursor-pointer flex flex-col h-full">
+            <div key={p.id} onClick={() => onSelect(p)} className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm hover:shadow-md hover:border-orange-200 transition-all cursor-pointer flex flex-col h-full">
               <div className="flex items-center gap-4 mb-4">
                 <Avatar url={p.avatarUrl} name={p.name} />
                 <div>
@@ -219,11 +229,39 @@
       const update = (field, val) => setState(prev => ({ ...prev, [field]: val }));
       return (
         <div className="bg-white rounded-3xl shadow-sm border border-stone-200 p-6 sm:p-10 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium mb-1">Name</label><input type="text" value={state.name || ''} onChange={e=>update('name', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
             <div><label className="block text-sm font-medium mb-1">Role</label><input type="text" value={state.role || ''} onChange={e=>update('role', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
-            <div><label className="block text-sm font-medium mb-1">Avatar URL</label><input type="text" value={state.avatarUrl || ''} onChange={e=>update('avatarUrl', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
           </div>
+          
+          {/* NEW: Easy Click Preset Avatar Selector */}
+          <div className="border p-4 rounded-2xl bg-stone-50/50">
+            <label className="block text-sm font-semibold text-stone-700 mb-2">Choose an Avatar</label>
+            <div className="flex flex-wrap gap-3 items-center mb-4">
+              {AVATAR_PRESETS.map((preset, i) => (
+                <button
+                  type="button"
+                  key={i}
+                  onClick={() => update('avatarUrl', preset.url)}
+                  className={`w-12 h-12 rounded-full overflow-hidden border-2 transition-all hover:scale-105 shadow-sm ${state.avatarUrl === preset.url ? 'border-orange-500 ring-2 ring-orange-200' : 'border-transparent'}`}
+                >
+                  <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => update('avatarUrl', '')}
+                className={`w-12 h-12 rounded-full border-2 border-dashed flex items-center justify-center text-xs font-bold transition-all text-stone-500 bg-white ${!state.avatarUrl ? 'border-orange-500 text-orange-600 bg-orange-50' : 'border-stone-300'}`}
+              >
+                Initials
+              </button>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1">Or paste a custom image web link:</label>
+              <input type="text" placeholder="https://..." value={state.avatarUrl || ''} onChange={e=>update('avatarUrl', e.target.value)} className="w-full border p-2 rounded-xl text-xs bg-white" />
+            </div>
+          </div>
+
           <hr />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium mb-1">Typical Hours</label><input type="text" value={state.typicalHours || ''} onChange={e=>update('typicalHours', e.target.value)} className="w-full border p-2 rounded-xl text-sm" /></div>
