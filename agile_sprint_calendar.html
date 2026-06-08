@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agile Sprint Schedule</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FullCalendar Core and Interaction -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    
+    <!-- Phosphor Icons for UI elements -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        /* Custom overrides to soften FullCalendar into a Material/Pastel aesthetic */
+        :root {
+            --fc-border-color: #e5e7eb;
+            --fc-today-bg-color: #f3f4f6;
+            --fc-event-border-color: transparent;
+        }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        .fc-col-header-cell { background-color: #f9fafb; padding: 12px 0 !important; color: #374151; font-weight: 600; text-transform: uppercase; font-size: 0.85rem;}
+        .fc-timegrid-slot { height: 3em !important; border-bottom: 1px solid #f3f4f6 !important; }
+        .fc-timegrid-axis-cushion { font-size: 0.85rem; color: #6b7280; }
+        
+        .fc-event {
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: none !important;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            overflow: hidden;
+        }
+        .fc-event:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+            cursor: pointer;
+        }
+        .fc-event-main {
+            padding: 4px 6px !important;
+            font-size: 0.85rem;
+            line-height: 1.2;
+            font-weight: 500;
+        }
+        
+        #eventModal { backdrop-filter: blur(2px); }
+        #customDialog { backdrop-filter: blur(2px); }
+        
+        /* Hide scrollbar for the all-day section to keep the swimlane clean */
+        .fc-daygrid-body { overflow: hidden !important; }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen w-screen overflow-hidden flex flex-col text-gray-800">
+
+    <!-- Top Toolbar -->
+    <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0 shadow-sm z-10">
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-100 text-indigo-600 p-2 rounded-lg">
+                <i class="ph ph-calendar-check text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-gray-800 leading-tight">Sprint Schedule</h1>
+                <p class="text-xs text-gray-500 font-medium">2-Week Agile Ceremonies Blueprint</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <button onclick="resetToDefault()" class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300 text-gray-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-200 shadow-sm">
+                <i class="ph ph-arrow-counter-clockwise text-lg"></i>
+                Reset to Default
+            </button>
+        </div>
+    </header>
+
+    <!-- Calendar Container -->
+    <main class="flex-1 w-full relative overflow-hidden p-4">
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm h-full overflow-hidden p-2">
+            <div id="calendar" class="h-full"></div>
+        </div>
+    </main>
+
+    <!-- Lightweight Editing Modal -->
+    <div id="eventModal" class="fixed inset-0 bg-gray-900/40 hidden z-50 flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-200" id="modalContent">
+            
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h3 class="text-lg font-semibold text-gray-800" id="modalTitle">Edit Event</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-md transition-colors">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="editEventId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <input type="text" id="editTitle" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Start</label>
+                        <input type="datetime-local" id="editStart" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">End</label>
+                        <input type="datetime-local" id="editEnd" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Repeat (Rest of Sprint)</label>
+                    <select id="editRepeat" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white">
+                        <option value="none">Does not repeat</option>
+                        <option value="daily">Every Day (Weekdays)</option>
+                        <option value="alternate">Every Other Day (Weekdays)</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Every 2 Weeks</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes / Links</label>
+                    <textarea id="editNotes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Zoom links, Confluence pages, agenda..."></textarea>
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-gray-100 flex justify-between bg-gray-50">
+                <button onclick="deleteEvent()" class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <i class="ph ph-trash"></i> Delete
+                </button>
+                <div class="flex gap-2">
+                    <button onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg shadow-sm transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="saveEvent()" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Custom Prompt Dialog -->
+    <div id="customDialog" class="fixed inset-0 bg-gray-900/50 hidden z-[60] flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-95 transition-transform duration-200" id="dialogContent">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-2" id="dialogTitle">Confirmation</h3>
+                <p class="text-sm text-gray-600 mb-6" id="dialogMessage">Are you sure?</p>
+                <div class="flex flex-col gap-3" id="dialogButtons">
+                    <!-- Buttons dynamically injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let calendar;
+        let currentEditingEvent = null;
+        const STORAGE_KEY = 'agileSprintCalendarData';
+
+        // --- Custom Prompt Logic (Replaces alert/confirm) ---
+        function showPrompt({ title, message, buttons }) {
+            document.getElementById('dialogTitle').innerText = title;
+            document.getElementById('dialogMessage').innerText = message;
+            
+            const btnContainer = document.getElementById('dialogButtons');
+            btnContainer.innerHTML = '';
+            
+            buttons.forEach(btn => {
+                const buttonEl = document.createElement('button');
+                buttonEl.innerText = btn.text;
+                buttonEl.className = btn.className || 'w-full px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors shadow-sm';
+                buttonEl.onclick = () => {
+                    closePrompt();
+                    if (btn.onClick) btn.onClick();
+                };
+                btnContainer.appendChild(buttonEl);
+            });
+
+            const dialog = document.getElementById('customDialog');
+            dialog.classList.remove('hidden');
+            setTimeout(() => {
+                dialog.classList.remove('opacity-0');
+                document.getElementById('dialogContent').classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closePrompt() {
+            const dialog = document.getElementById('customDialog');
+            dialog.classList.add('opacity-0');
+            document.getElementById('dialogContent').classList.add('scale-95');
+            setTimeout(() => {
+                dialog.classList.add('hidden');
+            }, 200);
+        }
+
+        // Helper: Get the Monday of the current week
+        function getStartOfCurrentWeek() {
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+            const monday = new Date(today.setDate(diff));
+            monday.setHours(0, 0, 0, 0);
+            return monday;
+        }
+
+        // Generate the Default 2-Week Blueprint
+        function generateDefaultEvents() {
+            const sprintStart = getStartOfCurrentWeek();
+            let events = [];
+
+            // 1. Sprint Goal Swimlane (All Day, 12 days to cover M-F of week 2)
+            const goalEnd = new Date(sprintStart);
+            goalEnd.setDate(goalEnd.getDate() + 12);
+            events.push({
+                id: 'evt-goal',
+                title: 'Sprint Goal: Deliver User Authentication feature',
+                start: sprintStart.toISOString(),
+                end: goalEnd.toISOString(),
+                allDay: true,
+                backgroundColor: '#F08080', // Light Coral
+                textColor: '#4A1C1C',
+                extendedProps: { notes: 'Primary target for this sprint cycle.' }
+            });
+
+            const standupSeriesId = 'series-standup';
+            
+            for (let i = 0; i < 14; i++) {
+                let currentDay = new Date(sprintStart);
+                currentDay.setDate(currentDay.getDate() + i);
+                let dayNum = currentDay.getDay();
+
+                if (dayNum === 0 || dayNum === 6) continue; // Skip Sat/Sun
+
+                const dateStr = currentDay.toISOString().split('T')[0];
+
+                // 2. Daily Stand-up: Mon-Fri, 10:30-10:45 AM (Linked in series)
+                events.push({
+                    id: `evt-su-${i}`,
+                    title: 'Daily Stand-up',
+                    start: `${dateStr}T10:30:00`,
+                    end: `${dateStr}T10:45:00`,
+                    backgroundColor: '#A3C1AD',
+                    textColor: '#1A3322',
+                    extendedProps: { notes: 'Quick status sync. Blockers?', seriesId: standupSeriesId }
+                });
+
+                // 3. Backlog Refinement: Mon W1 (i=0) & Mon W2 (i=7)
+                if (i === 0 || i === 7) {
+                    events.push({
+                        id: `evt-br-${i}`,
+                        title: 'Backlog Refinement',
+                        start: `${dateStr}T12:00:00`,
+                        end: `${dateStr}T13:00:00`,
+                        backgroundColor: '#FFB347',
+                        textColor: '#4D2A00',
+                        extendedProps: { notes: 'Review and point upcoming tickets.', seriesId: 'series-refinement' }
+                    });
+                }
+
+                // 4. Sprint Planning: Wed W1 (i=2), 11 AM - 12 PM
+                if (i === 2) {
+                    events.push({
+                        id: `evt-sp-${i}`,
+                        title: 'Sprint Planning',
+                        start: `${dateStr}T11:00:00`,
+                        end: `${dateStr}T12:00:00`,
+                        backgroundColor: '#6CA0DC',
+                        textColor: '#0E2745',
+                        extendedProps: { notes: 'Commit to sprint backlog.' }
+                    });
+                }
+
+                // 5. Sprint Review & Retro: Thu W2 (i=10), 2 PM - 3 PM
+                if (i === 10) {
+                    events.push({
+                        id: `evt-sr-${i}`,
+                        title: 'Sprint Review',
+                        start: `${dateStr}T14:00:00`,
+                        end: `${dateStr}T15:00:00`,
+                        backgroundColor: '#C8A2C8',
+                        textColor: '#3A1E3A',
+                        extendedProps: { notes: 'Demo increment and hold retrospective.' }
+                    });
+                }
+            }
+            return events;
+        }
+
+        // Initialize Calendar
+        document.addEventListener('DOMContentLoaded', function() {
+            let savedEvents = localStorage.getItem(STORAGE_KEY);
+            let initialEvents = savedEvents ? JSON.parse(savedEvents) : generateDefaultEvents();
+
+            let calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                // Core Config
+                initialView: 'twoWeekSprint',
+                initialDate: getStartOfCurrentWeek(),
+                views: {
+                    twoWeekSprint: {
+                        type: 'timeGrid',
+                        duration: { weeks: 2 },
+                        buttonText: 'Sprint View'
+                    }
+                },
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'twoWeekSprint,timeGridWeek'
+                },
+                
+                // Display Preferences
+                weekends: false,
+                slotMinTime: '08:00:00',
+                slotMaxTime: '18:00:00',
+                allDaySlot: true,
+                allDayText: 'Sprint Goals',
+                nowIndicator: true,
+                height: '100%',
+                expandRows: true,
+
+                // Interactivity
+                editable: true,
+                selectable: true,
+                selectMirror: true,
+                events: initialEvents,
+
+                // Background Sync
+                eventAdd: saveStateToStorage,
+                eventChange: saveStateToStorage,
+                eventRemove: saveStateToStorage,
+
+                // Move and Resize Hook for Series Handling
+                eventDrop: handleSeriesMoveOrResize,
+                eventResize: handleSeriesMoveOrResize,
+
+                // Custom Modal Hooks
+                eventClick: function(info) {
+                    openModal(info.event);
+                },
+                select: function(info) {
+                    createNewEvent(info);
+                }
+            });
+
+            calendar.render();
+        });
+
+        // --- Persistence Logic ---
+        function saveStateToStorage() {
+            // Check if calendar is ready
+            if(!calendar) return; 
+            
+            const events = calendar.getEvents().map(e => ({
+                id: e.id,
+                title: e.title,
+                start: e.start?.toISOString(),
+                end: e.end?.toISOString(),
+                allDay: e.allDay,
+                backgroundColor: e.backgroundColor,
+                textColor: e.textColor,
+                extendedProps: e.extendedProps
+            }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+        }
+
+        function resetToDefault() {
+            showPrompt({
+                title: 'Reset Schedule',
+                message: 'This will clear all your saved modifications and restore the default 2-week Sprint blueprint. Are you sure?',
+                buttons: [
+                    { text: 'Cancel', className: 'w-full px-4 py-2 text-sm font-medium bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50' },
+                    { text: 'Reset to Default', className: 'w-full px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700', onClick: () => {
+                        localStorage.removeItem(STORAGE_KEY);
+                        location.reload();
+                    }}
+                ]
+            });
+        }
+
+        // --- Modal & Editing Logic ---
+        function formatForDateTimeLocal(date) {
+            if (!date) return '';
+            const d = new Date(date);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().slice(0, 16);
+        }
+
+        function openModal(eventObj) {
+            currentEditingEvent = eventObj;
+            
+            document.getElementById('modalTitle').innerText = 'Edit Meeting';
+            document.getElementById('editEventId').value = eventObj.id;
+            document.getElementById('editTitle').value = eventObj.title;
+            document.getElementById('editStart').value = formatForDateTimeLocal(eventObj.start);
+            document.getElementById('editEnd').value = formatForDateTimeLocal(eventObj.end || eventObj.start);
+            document.getElementById('editNotes').value = eventObj.extendedProps.notes || '';
+            document.getElementById('editRepeat').value = 'none'; // Reset to none by default
+
+            const modal = document.getElementById('eventModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                document.getElementById('modalContent').classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('eventModal');
+            modal.classList.add('opacity-0');
+            document.getElementById('modalContent').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                currentEditingEvent = null;
+            }, 200);
+        }
+
+        function saveEvent() {
+            if (!currentEditingEvent) return;
+
+            const title = document.getElementById('editTitle').value;
+            const startStr = document.getElementById('editStart').value;
+            const endStr = document.getElementById('editEnd').value;
+            const notes = document.getElementById('editNotes').value;
+            const repeatCadence = document.getElementById('editRepeat').value;
+
+            if (title.trim() === '') {
+                showPrompt({ title: 'Error', message: 'Title is required.', buttons: [{ text: 'OK' }] });
+                return;
+            }
+
+            const seriesId = currentEditingEvent.extendedProps.seriesId;
+
+            const applyChanges = (targetEvent) => {
+                targetEvent.setProp('title', title);
+                targetEvent.setExtendedProp('notes', notes);
+                targetEvent.setDates(new Date(startStr), new Date(endStr));
+            };
+
+            if (seriesId) {
+                showPrompt({
+                    title: 'Update Series',
+                    message: 'Do you want to update just this occurrence, or the entire recurring series?',
+                    buttons: [
+                        { text: 'This event only', className: 'w-full px-4 py-2 text-sm font-medium bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50', onClick: () => {
+                            currentEditingEvent.setExtendedProp('seriesId', null); // Break from series
+                            applyChanges(currentEditingEvent);
+                            if (repeatCadence !== 'none') generateRecurringEvents(currentEditingEvent, repeatCadence);
+                            closeModal();
+                        }},
+                        { text: 'Entire series', className: 'w-full px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700', onClick: () => {
+                            const newStart = new Date(startStr);
+                            const newEnd = new Date(endStr);
+                            const oldStart = currentEditingEvent.start;
+                            const oldEnd = currentEditingEvent.end || currentEditingEvent.start;
+                            
+                            const startDeltaMs = newStart.getTime() - oldStart.getTime();
+                            const endDeltaMs = newEnd.getTime() - oldEnd.getTime();
+
+                            calendar.getEvents().forEach(e => {
+                                if (e.extendedProps.seriesId === seriesId) {
+                                    e.setProp('title', title);
+                                    e.setExtendedProp('notes', notes);
+                                    if (e.id === currentEditingEvent.id) {
+                                        e.setDates(newStart, newEnd);
+                                    } else {
+                                        e.setDates(
+                                            new Date(e.start.getTime() + startDeltaMs),
+                                            e.end ? new Date(e.end.getTime() + endDeltaMs) : null
+                                        );
+                                    }
+                                }
+                            });
+                            closeModal();
+                        }},
+                        { text: 'Cancel', className: 'w-full px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100' }
+                    ]
+                });
+            } else {
+                applyChanges(currentEditingEvent);
+                if (repeatCadence !== 'none') {
+                    generateRecurringEvents(currentEditingEvent, repeatCadence);
+                }
+                closeModal();
+            }
+        }
+
+        function generateRecurringEvents(baseEvent, cadence) {
+            const sprintStart = getStartOfCurrentWeek();
+            const sprintEnd = new Date(sprintStart);
+            sprintEnd.setDate(sprintEnd.getDate() + 14);
+
+            const baseStart = new Date(baseEvent.start);
+            const baseEnd = baseEvent.end ? new Date(baseEvent.end) : new Date(baseEvent.start);
+            const durationMs = baseEnd.getTime() - baseStart.getTime();
+
+            const seriesId = baseEvent.extendedProps.seriesId || ('series-' + Date.now());
+            baseEvent.setExtendedProp('seriesId', seriesId);
+
+            let nextDate = new Date(baseStart);
+            let skipNext = true; 
+
+            while (true) {
+                if (cadence === 'daily' || cadence === 'alternate') {
+                    nextDate.setDate(nextDate.getDate() + 1);
+                } else if (cadence === 'weekly') {
+                    nextDate.setDate(nextDate.getDate() + 7);
+                } else if (cadence === 'biweekly') {
+                    nextDate.setDate(nextDate.getDate() + 14);
+                }
+
+                if (nextDate >= sprintEnd) break;
+
+                const dayOfWeek = nextDate.getDay();
+
+                if (cadence === 'daily') {
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) createClone(nextDate, baseEvent, durationMs, seriesId);
+                } else if (cadence === 'alternate') {
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                        if (!skipNext) createClone(nextDate, baseEvent, durationMs, seriesId);
+                        skipNext = !skipNext;
+                    }
+                } else if (cadence === 'weekly' || cadence === 'biweekly') {
+                    createClone(nextDate, baseEvent, durationMs, seriesId);
+                }
+            }
+        }
+
+        function createClone(targetDate, baseEvent, durationMs, seriesId) {
+            const newStart = new Date(targetDate);
+            const newEnd = new Date(newStart.getTime() + durationMs);
+
+            calendar.addEvent({
+                id: 'evt-custom-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+                title: baseEvent.title,
+                start: newStart.toISOString(),
+                end: newEnd.toISOString(),
+                allDay: baseEvent.allDay,
+                backgroundColor: baseEvent.backgroundColor || '#cbd5e1',
+                textColor: baseEvent.textColor || '#0f172a',
+                extendedProps: { 
+                    notes: baseEvent.extendedProps?.notes || '',
+                    seriesId: seriesId
+                }
+            });
+        }
+
+        function deleteEvent() {
+            if (!currentEditingEvent) return;
+
+            const seriesId = currentEditingEvent.extendedProps.seriesId;
+
+            if (seriesId) {
+                showPrompt({
+                    title: 'Delete Recurring Event',
+                    message: `"${currentEditingEvent.title}" is part of a series. Delete just this one, or the entire series?`,
+                    buttons: [
+                        { text: 'This event only', className: 'w-full px-4 py-2 text-sm font-medium bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50', onClick: () => {
+                            currentEditingEvent.remove();
+                            closeModal();
+                        }},
+                        { text: 'Entire series', className: 'w-full px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700', onClick: () => {
+                            calendar.getEvents().forEach(e => {
+                                if (e.extendedProps.seriesId === seriesId) e.remove();
+                            });
+                            closeModal();
+                        }},
+                        { text: 'Cancel', className: 'w-full px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200' }
+                    ]
+                });
+            } else {
+                showPrompt({
+                    title: 'Delete Event',
+                    message: `Are you sure you want to remove "${currentEditingEvent.title}"?`,
+                    buttons: [
+                        { text: 'Cancel', className: 'w-full px-4 py-2 text-sm font-medium bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50' },
+                        { text: 'Delete', className: 'w-full px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700', onClick: () => {
+                            currentEditingEvent.remove();
+                            closeModal();
+                        }}
+                    ]
+                });
+            }
+        }
+
+        function handleSeriesMoveOrResize(info) {
+            const event = info.event;
+            const oldEvent = info.oldEvent;
+            const seriesId = event.extendedProps.seriesId;
+
+            if (!seriesId) {
+                saveStateToStorage();
+                return;
+            }
+
+            showPrompt({
+                title: 'Move Recurring Event',
+                message: 'Do you want to apply this time change to just this occurrence, or all occurrences in the series?',
+                buttons: [
+                    {
+                        text: 'This event only',
+                        className: 'w-full px-4 py-2 text-sm font-medium bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50',
+                        onClick: () => {
+                            event.setExtendedProp('seriesId', null); 
+                            saveStateToStorage();
+                        }
+                    },
+                    {
+                        text: 'Entire series',
+                        className: 'w-full px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700',
+                        onClick: () => {
+                            const startDeltaMs = event.start.getTime() - oldEvent.start.getTime();
+                            const endDeltaMs = (event.end ? event.end.getTime() : event.start.getTime()) - (oldEvent.end ? oldEvent.end.getTime() : oldEvent.start.getTime());
+
+                            calendar.getEvents().forEach(e => {
+                                if (e.extendedProps.seriesId === seriesId && e.id !== event.id) {
+                                    const newStart = new Date(e.start.getTime() + startDeltaMs);
+                                    const newEnd = e.end ? new Date(e.end.getTime() + endDeltaMs) : null;
+                                    e.setDates(newStart, newEnd);
+                                }
+                            });
+                            saveStateToStorage();
+                        }
+                    },
+                    {
+                        text: 'Cancel (Revert)',
+                        className: 'w-full px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100',
+                        onClick: () => {
+                            info.revert();
+                        }
+                    }
+                ]
+            });
+        }
+
+        function createNewEvent(selectInfo) {
+            const newEvent = {
+                id: 'evt-custom-' + Date.now(),
+                title: 'New Meeting',
+                start: selectInfo.startStr,
+                end: selectInfo.endStr,
+                allDay: selectInfo.allDay,
+                backgroundColor: '#cbd5e1', 
+                textColor: '#0f172a',
+                extendedProps: { notes: '' }
+            };
+            calendar.addEvent(newEvent); 
+            calendar.unselect();
+            
+            const newlyAdded = calendar.getEventById(newEvent.id);
+            if(newlyAdded) openModal(newlyAdded);
+        }
+    </script>
+</body>
+</html>
