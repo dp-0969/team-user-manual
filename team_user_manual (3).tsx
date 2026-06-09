@@ -1,0 +1,798 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, UserPlus, ArrowLeft, Edit3, MapPin, Clock, 
+  MessageCircle, Headphones, MessageSquare, Brain, 
+  Coffee, Smile, Save, X, Trash2, Camera, Plus, Star, AlertCircle,
+  Sparkles, Bot, Loader2
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+
+// ==========================================
+// DATA LAYER (FIREBASE SHARED DATABASE)
+// ==========================================
+let firebaseConfig = {};
+let isFirebaseConfigured = true;
+
+// 1. Try to load Canvas internal config if running here
+if (typeof __firebase_config !== 'undefined') {
+  try {
+    firebaseConfig = JSON.parse(__firebase_config);
+  } catch (e) {
+    console.error("Canvas config parsing error", e);
+  }
+}
+
+// 2. Fallback for external hosting (Vercel)
+if (Object.keys(firebaseConfig).length === 0) {
+  // Try to grab environment variables depending on the build tool (Vite, Next, or Create React App)
+  const safeGetEnv = (keyVite, keyReact, keyNext) => {
+    try {
+      if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[keyVite]) return import.meta.env[keyVite];
+      if (typeof process !== 'undefined' && process.env && process.env[keyReact]) return process.env[keyReact];
+      if (typeof process !== 'undefined' && process.env && process.env[keyNext]) return process.env[keyNext];
+    } catch (e) { return null; }
+    return null;
+  };
+
+  const apiKey = safeGetEnv('VITE_FIREBASE_API_KEY', 'REACT_APP_FIREBASE_API_KEY', 'NEXT_PUBLIC_FIREBASE_API_KEY') || "YOUR_API_KEY";
+
+  if (apiKey === "YOUR_API_KEY") {
+    // If it's still the placeholder, flag it so we can show the setup UI
+    isFirebaseConfigured = false;
+  } else {
+    firebaseConfig = {
+      apiKey: apiKey,
+      authDomain: safeGetEnv('VITE_FIREBASE_AUTH_DOMAIN', 'REACT_APP_FIREBASE_AUTH_DOMAIN', 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'),
+      projectId: safeGetEnv('VITE_FIREBASE_PROJECT_ID', 'REACT_APP_FIREBASE_PROJECT_ID', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID'),
+      storageBucket: safeGetEnv('VITE_FIREBASE_STORAGE_BUCKET', 'REACT_APP_FIREBASE_STORAGE_BUCKET', 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'),
+      messagingSenderId: safeGetEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', 'REACT_APP_FIREBASE_MESSAGING_SENDER_ID', 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
+      appId: safeGetEnv('VITE_FIREBASE_APP_ID', 'REACT_APP_FIREBASE_APP_ID', 'NEXT_PUBLIC_FIREBASE_APP_ID')
+    };
+  }
+}
+
+// Only initialize Firebase if we have real credentials
+let app, auth, db;
+const manualAppId = typeof __app_id !== 'undefined' ? __app_id : 'team-manual-app';
+
+if (isFirebaseConfigured) {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+}
+
+const generateId = () => crypto.randomUUID();
+
+const emptyProfile = {
+  name: '', role: '', avatarUrl: '',
+  typicalHours: '', location: '',
+  bestChannels: '', deepWork: '',
+  feedbackStyle: '', processInfo: '',
+  hobbies: '', happyToChatAbout: '',
+  customFields: []
+};
+
+// ==========================================
+// COMPONENTS
+// ==========================================
+
+export default function App() {
+  const [profiles, setProfiles] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [view, setView] = useState('dashboard'); // 'dashboard', 'profile', 'edit'
+  const [activeProfile, setActiveProfile] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authError, setAuthError] = useState(null);
+
+  if (!isFirebaseConfigured) {
+    return <SetupGuide />;
+  }
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error('Authentication error:', error);
+        if (error.code === 'auth/operation-not-allowed') {
+          setAuthError("Anonymous Authentication is not enabled in your Firebase project.");
+        } else {
+          setAuthError(error.message);
+        }
+        setIsLoading(false);
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    const profilesRef = collection(db, 'artifacts', manualAppId, 'public', 'data', 'profiles');
+    
+    const unsubscribe = onSnapshot(profilesRef, (snapshot) => {
+      const fetchedProfiles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setProfiles(fetchedProfiles);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching team profiles:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleSave = async (profileData) => {
+    if (!user) return;
+    
+    const docId = profileData.id || generateId();
+    const profileToSave = { ...profileData, id: docId };
+    
+    try {
+      const docRef = doc(db, 'artifacts', manualAppId, 'public', 'data', 'profiles', docId);
+      await setDoc(docRef, profileToSave);
+      setActiveProfile(profileToSave);
+      setView('profile');
+    } catch (error) {
+      console.error("Error saving profile:", error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!user) return;
+    
+    try {
+      const docRef = doc(db, 'artifacts', manualAppId, 'public', 'data', 'profiles', id);
+      await deleteDoc(docRef);
+      setView('dashboard');
+    } catch (error) {
+      console.error("Error deleting profile:", error);
+    }
+  };
+
+  const navigateTo = (newView, profile = null) => {
+    setActiveProfile(profile);
+    setView(newView);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="min-h-full w-full bg-stone-50 text-stone-800 font-sans p-4 sm:p-6 md:p-8">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pb-4 border-b border-stone-200 gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-orange-500 p-2 rounded-xl text-white shadow-sm">
+              <Users size={24} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Team Manuals</h1>
+              <p className="text-sm text-stone-500">How we work best, together.</p>
+            </div>
+          </div>
+          
+          {view === 'dashboard' && (
+            <button 
+              onClick={() => navigateTo('edit', emptyProfile)}
+              className="flex items-center justify-center gap-2 bg-stone-900 hover:bg-stone-800 text-white px-4 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
+            >
+              <UserPlus size={18} />
+              <span>Create Profile</span>
+            </button>
+          )}
+          {view !== 'dashboard' && (
+            <button 
+              onClick={() => navigateTo('dashboard')}
+              className="flex items-center justify-center gap-2 bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 px-4 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
+            >
+              <ArrowLeft size={18} />
+              <span>Back to Team</span>
+            </button>
+          )}
+        </header>
+
+        {/* Main Content Area */}
+        <main>
+          {authError && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
+              <AlertCircle className="shrink-0 mt-0.5" size={18} />
+              <div>
+                <h3 className="font-semibold">Firebase Authentication Error</h3>
+                <p className="text-sm mt-1">{authError}</p>
+                <p className="text-sm mt-2 font-medium">To fix this: Go to Firebase Console &gt; Authentication &gt; Sign-in method &gt; Enable "Anonymous".</p>
+              </div>
+            </div>
+          )}
+
+          {isLoading && !authError ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500"></div>
+            </div>
+          ) : (
+            <>
+              {view === 'dashboard' && <Dashboard profiles={profiles} onSelect={(p) => navigateTo('profile', p)} />}
+              {view === 'profile' && <ProfileView profile={activeProfile} onEdit={() => navigateTo('edit', activeProfile)} />}
+              {view === 'edit' && <ProfileForm profile={activeProfile} onSave={handleSave} onCancel={() => activeProfile?.id ? navigateTo('profile', activeProfile) : navigateTo('dashboard')} onDelete={handleDelete} />}
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// SETUP GUIDE (For Vercel Deployment)
+// ==========================================
+function SetupGuide() {
+  return (
+    <div className="min-h-full w-full bg-stone-50 text-stone-800 font-sans p-4 sm:p-6 md:p-8 flex justify-center items-start pt-10 sm:pt-20">
+      <div className="max-w-2xl w-full bg-white rounded-3xl shadow-lg border border-orange-200 p-8 sm:p-12">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="bg-orange-100 p-3 rounded-2xl text-orange-600">
+            <AlertCircle size={32} />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-stone-900">Database Setup Required</h1>
+        </div>
+        
+        <p className="text-stone-600 text-lg mb-8">
+          It looks like you deployed this to Vercel, but haven't connected it to a database yet. Because you want your team to share profiles, you need a free Firebase database to store them.
+        </p>
+
+        <div className="space-y-8">
+          <div className="relative pl-6 border-l-2 border-orange-200">
+            <div className="absolute -left-[17px] top-0 bg-orange-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm">1</div>
+            <h3 className="text-lg font-bold text-stone-900 mb-2">Create a Firebase Project</h3>
+            <p className="text-stone-600 mb-2">Go to <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-orange-600 hover:underline font-medium">Firebase Console</a> and create a new project. Click the <b>&lt;/&gt; Web</b> icon to register your app and get your config keys.</p>
+          </div>
+
+          <div className="relative pl-6 border-l-2 border-orange-200">
+            <div className="absolute -left-[17px] top-0 bg-orange-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm">2</div>
+            <h3 className="text-lg font-bold text-stone-900 mb-2">Enable Database & Auth</h3>
+            <p className="text-stone-600 mb-2">In Firebase, go to <b>Firestore Database</b> and click "Create Database" (Start in Test Mode). Then go to <b>Authentication &gt; Sign-in method</b> and enable <b>Anonymous</b>.</p>
+          </div>
+
+          <div className="relative pl-6 border-l-2 border-transparent">
+            <div className="absolute -left-[17px] top-0 bg-orange-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm">3</div>
+            <h3 className="text-lg font-bold text-stone-900 mb-2">Add Variables to Vercel</h3>
+            <p className="text-stone-600 mb-4">Go to your Vercel Project &gt; Settings &gt; Environment Variables. Add the following keys with the values Firebase gave you. (Prefix with <code>VITE_</code> if using Vite, <code>NEXT_PUBLIC_</code> if using Next.js, or <code>REACT_APP_</code> if using Create React App):</p>
+            
+            <div className="bg-stone-900 text-stone-300 p-4 rounded-xl font-mono text-sm overflow-x-auto">
+              [PREFIX]_FIREBASE_API_KEY=your_key_here<br/>
+              [PREFIX]_FIREBASE_AUTH_DOMAIN=your_domain_here<br/>
+              [PREFIX]_FIREBASE_PROJECT_ID=your_id_here<br/>
+              [PREFIX]_FIREBASE_STORAGE_BUCKET=your_bucket_here<br/>
+              [PREFIX]_FIREBASE_MESSAGING_SENDER_ID=your_sender_id<br/>
+              [PREFIX]_FIREBASE_APP_ID=your_app_id
+            </div>
+            
+            <p className="text-stone-500 text-sm mt-4 italic">Once you add these and redeploy in Vercel, this screen will disappear and your Team Manual will be live!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// DASHBOARD VIEW
+// ==========================================
+function Dashboard({ profiles, onSelect }) {
+  if (profiles.length === 0) {
+    return (
+      <div className="text-center py-20 bg-white rounded-3xl border border-stone-200 shadow-sm border-dashed">
+        <Users className="mx-auto h-12 w-12 text-stone-300 mb-4" />
+        <h3 className="text-lg font-medium text-stone-900">No profiles yet</h3>
+        <p className="mt-1 text-stone-500">Get started by creating the first team manual.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {profiles.map(profile => (
+        <button 
+          key={profile.id}
+          onClick={() => onSelect(profile)}
+          className="group bg-white rounded-3xl p-6 text-left border border-stone-100 shadow-sm hover:shadow-md hover:border-orange-200 transition-all duration-200 flex flex-col h-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+        >
+          <div className="flex items-center gap-4 mb-4">
+            <Avatar url={profile.avatarUrl} name={profile.name} size="lg" />
+            <div>
+              <h3 className="text-lg font-semibold text-stone-900 group-hover:text-orange-600 transition-colors">{profile.name}</h3>
+              <p className="text-sm text-stone-500 font-medium">{profile.role}</p>
+            </div>
+          </div>
+          
+          <div className="mt-auto space-y-2 pt-4 border-t border-stone-50">
+            {profile.location && (
+              <div className="flex items-center gap-2 text-sm text-stone-600">
+                <MapPin size={14} className="text-stone-400" />
+                <span className="truncate">{profile.location}</span>
+              </div>
+            )}
+            {profile.typicalHours && (
+              <div className="flex items-center gap-2 text-sm text-stone-600">
+                <Clock size={14} className="text-stone-400" />
+                <span className="truncate">{profile.typicalHours}</span>
+              </div>
+            )}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ==========================================
+// PROFILE VIEW
+// ==========================================
+function ProfileView({ profile, onEdit }) {
+  const [aiInsight, setAiInsight] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [insightType, setInsightType] = useState(''); // 'summary' | 'icebreaker'
+
+  const handleGenerateAI = async (type) => {
+    setIsGenerating(true);
+    setInsightType(type);
+    setAiInsight('');
+
+    try {
+      const apiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : ''; // Replace with actual API key handling if needed
+      if (!apiKey) {
+        setAiInsight("AI features are not configured for this environment.");
+        return;
+      }
+
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${apiKey}`;
+
+      let systemPrompt = "";
+      let userQuery = "";
+
+      // Gather profile data as context for the LLM
+      const profileContext = `Name: ${profile.name}
+Role: ${profile.role}
+Hours: ${profile.typicalHours}
+Location: ${profile.location}
+Best Channels: ${profile.bestChannels}
+Deep Work: ${profile.deepWork}
+Feedback Style: ${profile.feedbackStyle}
+Process Info: ${profile.processInfo}
+Hobbies: ${profile.hobbies}
+Happy to Chat About: ${profile.happyToChatAbout}
+Custom Fields: ${JSON.stringify(profile.customFields || [])}`;
+
+      if (type === 'summary') {
+        systemPrompt = "You are an expert team collaboration coach. Provide a brief, friendly 2-sentence summary of how to best work with this person based on their profile. Focus on communication and work style.";
+        userQuery = `Summarize this profile:\n${profileContext}`;
+      } else if (type === 'icebreaker') {
+        systemPrompt = "You are a friendly colleague. Generate a single, engaging icebreaker question to start a casual conversation with this person based primarily on their hobbies and interests.";
+        userQuery = `Generate an icebreaker for:\n${profileContext}`;
+      }
+
+      const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+      };
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+      const candidate = result.candidates?.[0];
+
+      if (candidate && candidate.content?.parts?.[0]?.text) {
+        setAiInsight(candidate.content.parts[0].text);
+      } else {
+        setAiInsight("Sorry, I couldn't generate an insight right now.");
+      }
+    } catch (error) {
+      console.error("Gemini API Error:", error);
+      setAiInsight("Oops! Something went wrong while connecting to the AI.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  if (!profile) return null;
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
+      {/* Profile Header */}
+      <div className="bg-gradient-to-r from-stone-100 to-orange-50 p-6 sm:p-10 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative">
+        <Avatar url={profile.avatarUrl} name={profile.name} size="xl" className="border-4 border-white shadow-md" />
+        <div className="text-center sm:text-left flex-1">
+          <h2 className="text-3xl font-bold text-stone-900">{profile.name}</h2>
+          <p className="text-lg text-stone-600 mt-1">{profile.role}</p>
+        </div>
+        <button 
+          onClick={onEdit}
+          className="absolute top-6 right-6 sm:static flex items-center gap-2 bg-white/80 hover:bg-white text-stone-700 px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm backdrop-blur-sm border border-stone-200/50"
+        >
+          <Edit3 size={16} />
+          <span className="hidden sm:inline">Edit Profile</span>
+        </button>
+      </div>
+
+      {/* AI Insights Section */}
+      <div className="mx-6 sm:mx-10 mt-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-indigo-900 font-semibold">
+            <Sparkles size={20} className="text-indigo-500" />
+            <span>AI Team Assistant</span>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button 
+              onClick={() => handleGenerateAI('summary')}
+              disabled={isGenerating}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {isGenerating && insightType === 'summary' ? <Loader2 size={16} className="animate-spin" /> : <Bot size={16} />}
+              <span>TL;DR Summary</span>
+            </button>
+            <button 
+              onClick={() => handleGenerateAI('icebreaker')}
+              disabled={isGenerating}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {isGenerating && insightType === 'icebreaker' ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
+              <span>Icebreaker</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Insight Result */}
+        {(aiInsight || isGenerating) && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-indigo-50 text-stone-700 leading-relaxed text-sm">
+            {isGenerating ? (
+              <div className="flex items-center gap-2 text-indigo-400 animate-pulse">
+                <Sparkles size={16} />
+                <span>Analyzing profile data...</span>
+              </div>
+            ) : (
+              <p>{aiInsight}</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Profile Content */}
+      <div className="p-6 sm:p-10 grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-10">
+        
+        {/* Section 1 */}
+        <Section title="1. When & Where I Work" icon={<Clock className="text-orange-500" />}>
+          <Field label="Typical Hours" icon={<Clock size={16}/>} value={profile.typicalHours} />
+          <Field label="Location" icon={<MapPin size={16}/>} value={profile.location} />
+        </Section>
+
+        {/* Section 2 */}
+        <Section title="2. How to Reach Me" icon={<MessageCircle className="text-orange-500" />}>
+          <Field label="Best Channels" icon={<MessageCircle size={16}/>} value={profile.bestChannels} />
+          <Field label="Deep Work & Focus" icon={<Headphones size={16}/>} value={profile.deepWork} />
+        </Section>
+
+        {/* Section 3 */}
+        <Section title="3. Working Together & Feedback" icon={<Brain className="text-orange-500" />}>
+          <Field label="Feedback Style" icon={<MessageSquare size={16}/>} value={profile.feedbackStyle} />
+          <Field label="How I Process Information" icon={<Brain size={16}/>} value={profile.processInfo} />
+        </Section>
+
+        {/* Section 4 */}
+        <Section title="4. Outside of Work" icon={<Coffee className="text-orange-500" />}>
+          <Field label="Hobbies & Interests" icon={<Smile size={16}/>} value={profile.hobbies} />
+          <Field label="Always Happy to Chat About" icon={<Coffee size={16}/>} value={profile.happyToChatAbout} />
+        </Section>
+
+        {/* Section 5 (Custom) */}
+        {profile.customFields && profile.customFields.length > 0 && (
+          <Section title="5. Additional Info" icon={<Star className="text-orange-500" />}>
+            {profile.customFields.map(field => (
+              <Field key={field.id} label={field.label || 'Custom Field'} icon={<Star size={16}/>} value={field.value} />
+            ))}
+          </Section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// EDIT / CREATE FORM
+// ==========================================
+function ProfileForm({ profile, onSave, onCancel, onDelete }) {
+  const [formData, setFormData] = useState(profile || emptyProfile);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddCustomField = () => {
+    setFormData(prev => ({
+      ...prev,
+      customFields: [...(prev.customFields || []), { id: generateId(), label: '', value: '' }]
+    }));
+  };
+
+  const handleCustomFieldChange = (id, field, newValue) => {
+    setFormData(prev => ({
+      ...prev,
+      customFields: (prev.customFields || []).map(cf => cf.id === id ? { ...cf, [field]: newValue } : cf)
+    }));
+  };
+
+  const handleRemoveCustomField = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      customFields: (prev.customFields || []).filter(cf => cf.id !== id)
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    await onSave(formData);
+    setIsSaving(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
+      <div className="p-6 sm:p-10 border-b border-stone-100 bg-stone-50/50">
+        <h2 className="text-2xl font-bold text-stone-900 mb-6">
+          {formData.id ? 'Edit Your Manual' : 'Create Your Manual'}
+        </h2>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <InputGroup label="Full Name" name="name" value={formData.name} onChange={handleChange} required />
+          <InputGroup label="Role / Title" name="role" value={formData.role} onChange={handleChange} required />
+          <InputGroup 
+            label="Profile Picture (Avatar URL)" 
+            name="avatarUrl" 
+            value={formData.avatarUrl} 
+            onChange={handleChange} 
+            placeholder="https://..."
+            icon={<Camera size={16} className="text-stone-400 absolute left-3 top-3.5" />}
+          />
+        </div>
+      </div>
+
+      <div className="p-6 sm:p-10 space-y-12">
+        <FormSection title="1. When & Where I Work">
+          <InputGroup label="Typical Hours" name="typicalHours" value={formData.typicalHours} onChange={handleChange} placeholder="e.g., 9am - 5pm GMT, mostly flexible" />
+          <InputGroup label="Location" name="location" value={formData.location} onChange={handleChange} placeholder="e.g., Remote in Manchester, Hybrid" />
+        </FormSection>
+
+        <FormSection title="2. How to Reach Me">
+          <TextAreaGroup label="Best Channels" name="bestChannels" value={formData.bestChannels} onChange={handleChange} placeholder="e.g., Slack for quick things, email for longer updates." />
+          <TextAreaGroup label="Deep Work & Focus" name="deepWork" value={formData.deepWork} onChange={handleChange} placeholder="How do you indicate you're focusing? What's the protocol for interrupting?" />
+        </FormSection>
+
+        <FormSection title="3. Working Together & Feedback">
+          <TextAreaGroup label="Feedback Style" name="feedbackStyle" value={formData.feedbackStyle} onChange={handleChange} placeholder="Do you prefer written or verbal? Direct or softened?" />
+          <TextAreaGroup label="How I Process Information" name="processInfo" value={formData.processInfo} onChange={handleChange} placeholder="Do you need time to read before meetings? Do you think out loud?" />
+        </FormSection>
+
+        <FormSection title="4. Outside of Work">
+          <TextAreaGroup label="Hobbies & Interests" name="hobbies" value={formData.hobbies} onChange={handleChange} placeholder="What do you do to unwind?" />
+          <TextAreaGroup label="Always Happy to Chat About" name="happyToChatAbout" value={formData.happyToChatAbout} onChange={handleChange} placeholder="Topics you can geek out over anytime." />
+        </FormSection>
+
+        <FormSection title="5. Additional Information">
+          {(formData.customFields || []).map((field) => (
+            <div key={field.id} className="p-5 border border-stone-200 rounded-2xl bg-white relative flex flex-col gap-4 mt-2 shadow-sm">
+              <div className="flex justify-between items-center mb-1">
+                <h4 className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Custom Field</h4>
+                <button 
+                  type="button" 
+                  onClick={() => handleRemoveCustomField(field.id)} 
+                  className="text-stone-400 hover:text-red-500 transition-colors"
+                  title="Remove Field"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+              <InputGroup 
+                label="Question / Title" 
+                name={`cf-label-${field.id}`}
+                value={field.label} 
+                onChange={(e) => handleCustomFieldChange(field.id, 'label', e.target.value)} 
+                placeholder="e.g., Favorite Snack, Pet's Name" 
+                required 
+              />
+              <TextAreaGroup 
+                label="Your Answer" 
+                name={`cf-value-${field.id}`}
+                value={field.value} 
+                onChange={(e) => handleCustomFieldChange(field.id, 'value', e.target.value)} 
+                placeholder="What's your answer?" 
+                required 
+              />
+            </div>
+          ))}
+          <button 
+            type="button" 
+            onClick={handleAddCustomField} 
+            className="mt-2 flex items-center gap-2 text-sm font-medium text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-4 py-2.5 rounded-xl w-fit transition-colors"
+          >
+            <Plus size={16} /> Add Custom Question
+          </button>
+        </FormSection>
+      </div>
+
+      <div className="p-6 sm:p-10 border-t border-stone-100 bg-stone-50 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+        {formData.id ? (
+          isConfirmingDelete ? (
+            <div className="w-full sm:w-auto flex items-center gap-2">
+              <span className="text-sm font-medium text-red-600">Are you sure?</span>
+              <button 
+                type="button" 
+                onClick={() => onDelete(formData.id)}
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl transition-colors font-medium text-sm"
+              >
+                Yes, Delete
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setIsConfirmingDelete(false)}
+                className="bg-stone-200 hover:bg-stone-300 text-stone-700 px-3 py-2 rounded-xl transition-colors font-medium text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button 
+              type="button" 
+              onClick={() => setIsConfirmingDelete(true)}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 px-4 py-2.5 rounded-xl transition-colors font-medium"
+            >
+              <Trash2 size={18} />
+              <span>Delete Profile</span>
+            </button>
+          )
+        ) : <div></div>}
+        
+        <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-3">
+          <button 
+            type="button" 
+            onClick={onCancel}
+            className="flex items-center justify-center gap-2 bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 px-6 py-2.5 rounded-xl font-medium transition-colors"
+          >
+            <X size={18} />
+            <span>Cancel</span>
+          </button>
+          <button 
+            type="submit" 
+            disabled={isSaving}
+            className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-70 shadow-sm"
+          >
+            <Save size={18} />
+            <span>{isSaving ? 'Saving...' : 'Save Profile'}</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+// ==========================================
+// REUSABLE UI COMPONENTS
+// ==========================================
+
+function Avatar({ url, name, size = 'md', className = '' }) {
+  const sizes = {
+    md: 'w-12 h-12 text-lg',
+    lg: 'w-16 h-16 text-xl',
+    xl: 'w-24 h-24 text-3xl'
+  };
+
+  const getInitials = (name) => {
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
+
+  return (
+    <div className={`shrink-0 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold overflow-hidden ${sizes[size]} ${className}`}>
+      {url ? (
+        <img src={url} alt={name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+      ) : (
+        <span>{getInitials(name)}</span>
+      )}
+    </div>
+  );
+}
+
+function Section({ title, icon, children }) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 border-b border-stone-100 pb-2">
+        {icon}
+        <h3 className="text-xl font-semibold text-stone-900">{title}</h3>
+      </div>
+      <div className="space-y-6">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, icon, value }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-stone-400">{icon}</span>
+        <h4 className="text-sm font-semibold text-stone-900 uppercase tracking-wider">{label}</h4>
+      </div>
+      {value ? (
+        <p className="text-stone-600 leading-relaxed whitespace-pre-wrap pl-6 border-l-2 border-orange-100">{value}</p>
+      ) : (
+        <p className="text-stone-400 italic pl-6 border-l-2 border-stone-100 text-sm">Still figuring this out!</p>
+      )}
+    </div>
+  );
+}
+
+function FormSection({ title, children }) {
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-stone-900 border-b border-stone-100 pb-2">{title}</h3>
+      <div className="space-y-4">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function InputGroup({ label, name, value, onChange, placeholder, required = false, icon = null }) {
+  return (
+    <div className="flex flex-col gap-1.5 w-full relative">
+      <label className="text-sm font-medium text-stone-700">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <div className="relative">
+        {icon}
+        <input 
+          type="text" 
+          name={name} 
+          value={value} 
+          onChange={onChange} 
+          placeholder={placeholder}
+          required={required}
+          className={`w-full bg-white border border-stone-200 rounded-xl px-4 py-2.5 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all ${icon ? 'pl-10' : ''}`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TextAreaGroup({ label, name, value, onChange, placeholder, required = false }) {
+  return (
+    <div className="flex flex-col gap-1.5 w-full">
+      <label className="text-sm font-medium text-stone-700">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <textarea 
+        name={name} 
+        value={value} 
+        onChange={onChange} 
+        placeholder={placeholder}
+        required={required}
+        rows={3}
+        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-y"
+      />
+    </div>
+  );
+}
